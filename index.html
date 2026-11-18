@@ -627,6 +627,7 @@ addEventListener('pointermove',e=>pick(e.clientX,e.clientY));
 addEventListener('pointerdown',e=>{mx=e.clientX/innerWidth;my=e.clientY/innerHeight;pick(e.clientX,e.clientY)});
 const tq=new THREE.Quaternion(),tv=new THREE.Vector3(),eul=new THREE.Euler();
 function tableStep(dt,t){
+  if(C2.aspect!==innerWidth/innerHeight){resize2();fanLayout()}  /* phones resize the viewport as toolbars come and go */
   land=Math.min(1,land+dt/1.6);const le=easeOut(land);
   C2.position.set((mx-.5)*.55,(.5-my)*.3+(1-le)*.6,SD);C2.lookAt(0,(1-le)*.3,0);C2.updateMatrixWorld();
   stageStep(dt,t);if(dealT>=0)dealT+=dt;
@@ -685,7 +686,7 @@ async function descend(){
 const ALICE=(()=>{
 const VW=1440,VH=900,CRIM='#8e1c2c',CREAM='#f4ecdc',INK='#2a1a17';
 const css=document.createElement('style');css.textContent=`
-#alice{position:fixed;inset:0;z-index:20;display:none;background:#000;overflow:hidden;cursor:none;user-select:none;-webkit-user-select:none;transition:filter 1.2s}
+#alice{position:fixed;inset:0;z-index:20;display:none;background:#000;overflow:hidden;cursor:default;user-select:none;-webkit-user-select:none;transition:filter 1.2s}
 #alice .sc{position:absolute;inset:0;display:none}
 #alice canvas{position:absolute;inset:0;width:100%;height:100%}
 #a-world{position:absolute;left:0;top:0;width:${VW}px;height:${VH}px;transform-origin:0 0}
@@ -930,7 +931,7 @@ scenes.fall=(()=>{const el=$('#a-fall'),cv=$('canvas',el),say=$('.say',el),hint=
     run=false;cancelAnimationFrame(raf);el.style.display='none';el.style.opacity=0;scene=null;scenes.fall.stop();
     await go('hall');await sleep(250);W.style.transition='opacity 1.6s';W.style.opacity=0;await sleep(1700);W.remove();wf.style.opacity=0}
   return{prepare(){if(built)return;build();sizeR(r3,cam);setSnap();try{r3.compile(sc,cam);r3.compile(bgScene,bgCam)}catch(e){}},
-    start(){if(!built)build();else objs.forEach((o,i)=>spawn(o,-2-i*1.5));setSnap();swirlMat.uniforms.time.value=0;depth=0;vel=0;landed=false;said=0;last=0;run=true;wf.style.opacity=0;say.textContent='';hint.style.opacity='';
+    start(){if(!built)build();else objs.forEach((o,i)=>spawn(o,-2-i*1.5));setSnap();swirlMat.uniforms.time.value=0;depth=0;vel=0;landed=false;said=0;last=0;run=true;wf.style.opacity=0;say.textContent='';hint.style.opacity='';hint.textContent=TOUCH?'swipe up to fall':'scroll to fall';
       raf=requestAnimationFrame(frame);addEventListener('wheel',wheel,{passive:true});addEventListener('touchstart',tstart,{passive:true});addEventListener('touchmove',tmove,{passive:true})},
     stop(){run=false;cancelAnimationFrame(raf);removeEventListener('wheel',wheel);removeEventListener('touchstart',tstart);removeEventListener('touchmove',tmove)}}})();
 
@@ -1039,7 +1040,7 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
     cLight=new THREE.PointLight(0xffc98a,0,16,1.4);cLight.position.set(0,2.5+ch*.5,TZ);sc.add(cLight);
     spot=new THREE.SpotLight(0xfff0dc,0,9,.42,1,1.1);spot.position.set(0,3.1,TZ+1.1);spot.target.position.set(0,TOPY+.15,TZ+.3);spot.castShadow=true;spot.shadow.mapSize.set(1024,1024);spot.shadow.bias=-.0006;sc.add(spot,spot.target);
     amb=new THREE.AmbientLight(0xffe6d0,0);sc.add(amb);
-    dmEl.src=IMG.r_drink;dmEl.style.cssText='position:absolute;z-index:6;left:50%;top:60%;width:94vw;height:56vh;transform:translate(-50%,-50%);pointer-events:none;opacity:0';el.appendChild(dmEl);
+    dmEl.src=IMG.r_drink;dmEl.style.cssText='position:absolute;z-index:6;left:50%;top:60%;width:94vw;height:56vh;object-fit:contain;transform:translate(-50%,-50%);pointer-events:none;opacity:0';el.appendChild(dmEl);
     const dt2=tx('r_drink');dm=new THREE.Mesh(new THREE.PlaneGeometry(1,dt2.image.height/dt2.image.width),new THREE.MeshBasicMaterial({map:dt2,transparent:true,depthWrite:false,toneMapped:false}));dm.renderOrder=5;dm.rotation.x=-Math.PI/2;dm.position.set(0,TOPY+.002,TZ+.05);dm.scale.setScalar(.32);sc.add(dm);
     dmWall=new THREE.Mesh(new THREE.PlaneGeometry(.82,.82*dt2.image.height/dt2.image.width),new THREE.MeshBasicMaterial({map:dt2,transparent:true,opacity:0,depthWrite:false,toneMapped:false,fog:false}));
     dmWall.position.set(0,TOPY+.1,-RR+.06);dmWall.visible=false;sc.add(dmWall);
@@ -1109,7 +1110,7 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
     /* look around the round room, or lean in over the table */
     zk+=((zoomed?1:0)-zk)*(1-Math.exp(-dt*2.2));const z=zk*zk*(3-2*zk);
     yaw+=(((cx0/innerWidth-.5)*-1.9)*(1-z)-yaw)*(1-Math.exp(-dt*3));pitch+=((((.5-cy0/innerHeight)*.38+.06)*(1-z))-pitch)*(1-Math.exp(-dt*3));
-    cam.fov=56+(10-56)*z;cam.updateProjectionMatrix();const tanZ=Math.tan(5*Math.PI/180),dz=RING+(.5*Math.max(1,1.78/cam.aspect))/(2*tanZ);
+    cam.fov=56+(10-56)*z;cam.updateProjectionMatrix();const tanZ=Math.tan(5*Math.PI/180),dz=RING+(.5*Math.min(1.7,Math.max(1,1.78/cam.aspect)))/(2*tanZ);  /* phones: lean in closer, neighbours slide off the sides */
     const P0=new THREE.Vector3(0,1.5,2.2),Pz=new THREE.Vector3((cx0/innerWidth-.5)*.25,TOPY+.53+(cy0/innerHeight-.5)*-.04,TZ+dz);
     cam.position.lerpVectors(P0,Pz,z);
     const L0=new THREE.Vector3(Math.sin(yaw)*-1,0,-Math.cos(yaw)).multiplyScalar(10).add(new THREE.Vector3(0,1.55+Math.tan(pitch)*10,3));
@@ -1122,7 +1123,7 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
     dm.visible=zk>.05;
     const burst=zoomed&&steps===3;
     if(burst!==dmShown){dmShown=burst;
-      if(burst){dmEl.style.transition='none';dmEl.style.opacity=1;dmEl.style.transform='translate(-50%,-50%) scale(1.22)';
+      if(burst){dmEl.style.top=innerHeight>innerWidth?'74%':'60%';dmEl.style.transition='none';dmEl.style.opacity=1;dmEl.style.transform='translate(-50%,-50%) scale(1.22)';
         requestAnimationFrame(()=>requestAnimationFrame(()=>{dmEl.style.transition='transform .42s cubic-bezier(.2,1.7,.35,1)';dmEl.style.transform='translate(-50%,-50%) scale(1)'}))}
       else{dmEl.style.transition='opacity .18s';dmEl.style.opacity=0}}
     dmWall.visible=false;
@@ -1218,10 +1219,10 @@ scenes.wake=(()=>{const el=$('#a-wake'),cv=$('canvas',el),x=cv.getContext('2d'),
 let onExit=null;
 async function exit(){const cur=scene||'wake',f=$('#a-'+cur);f.style.transition='opacity 1.2s';f.style.opacity=0;await sleep(1200);scenes[cur].stop();f.style.display='none';scene=null;
   root.style.display='none';cur.style.display='none';root.style.filter='';onExit&&onExit()}
-return{start(cb){onExit=cb;root.style.display='block';root.style.filter='';cur.style.display=TOUCH?'none':'block';cur.style.transform=`translate(${cx0}px,${cy0}px)`;
+return{start(cb){onExit=cb;root.style.display='block';root.style.filter='';cur.style.display='none';cur.style.transform=`translate(${cx0}px,${cy0}px)`;
   ['fall','hall','garden','trial','wake'].forEach(i=>{$('#a-'+i).style.display='none'});scene=null;go('fall')},
   prepare(){try{scenes.fall.prepare()}catch(e){}},
-  jump(id,cb){onExit=cb;root.style.display='block';cur.style.display=TOUCH?'none':'block';go(id)}};
+  jump(id,cb){onExit=cb;root.style.display='block';cur.style.display='none';go(id)}};
 })();
 
 /* choosing a lifted card opens its story */
@@ -1238,7 +1239,7 @@ async function enterStory(i){
   /* the card comes forward, straight and large… then rushes at you and you are through it */
   await wait(700);
   const ar=document.getElementById('alice');ar.style.transition='none';ar.style.opacity=0;
-  document.body.style.cursor='none';
+  document.body.style.cursor='default';
   ALICE.start(async()=>{mode='table';document.body.style.cursor='default';opening=false;active=-1;chosen=-1;
     fade.style.transition='none';fade.style.opacity=1;await wait(30);fade.style.transition='opacity 1.6s';fade.style.opacity=0});
   await wait(16);ar.style.transition='opacity .28s ease-in';ar.style.opacity=1;
