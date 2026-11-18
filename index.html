@@ -997,7 +997,7 @@ const TWINE=(()=>{const c=document.createElement('canvas');c.width=64;c.height=6
   const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.encoding=THREE.sRGBEncoding;return t})();
 const twineMat=(rep)=>{const t=TWINE.clone();t.needsUpdate=true;t.repeat.set(rep,1);return new THREE.MeshStandardMaterial({map:t,roughness:.95})};
 scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=$('.ah',el),cap=$('.btl',el);
-  let r3,sc,cam,bottles=[],spot,run=false,raf,built=false,pos=0,target=0,last=0,leaving=false,pv=0,shown=-1,rt1,rt2,glassMs=[],liqMs=[];
+  let smokeMat,smokeScene,smokeCam,smokeB=null,smokeOn=false,smokeP=0,opened=0,r3,sc,cam,bottles=[],spot,run=false,raf,built=false,pos=0,target=0,last=0,leaving=false,pv=0,shown=-1,rt1,rt2,glassMs=[],liqMs=[];
   const dmEl=document.createElement('img');let dm,dmWall,dmShown=false,wallK=0,steps=0,lastNear=0,scareT=0,scareK=0,ring,chand,cLight,amb,flames=[],tbase,lightOn=0,t0=0,zoomed=false,zk=0,yaw=0,pitch=0;
   const RR=3.8,TZ=-1.3,TOPY=.95,RT=.62,SB=.18,RING=.52;
   const SP=2.7,PAPER_BACK=(()=>{const c=document.createElement('canvas');c.width=c.height=8;const x=c.getContext('2d');x.fillStyle='#ece8e1';x.fillRect(0,0,8,8);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t})();
@@ -1085,7 +1085,40 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
       const ca=new THREE.Mesh(new THREE.CircleGeometry(B.maxR*1.6,32),new THREE.MeshBasicMaterial({map:glowTex([[0,`rgba(${d.liq.map(v=>v*255|0).join(',')},.55)`],[1,'rgba(0,0,0,0)']]),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
       ca.rotation.x=-Math.PI/2;ca.position.set(.18,.007,.35);ca.scale.set(1,.6,1);g.add(ca);g.userData.holder=holder;
       const s0=Math.min(1,1.9/2.0);g.userData.s0=s0;
-      return{g,spin,pivot,gm,d,pts}});
+      return{g,spin,pivot,gm,d,pts,stop,neckY:cy}});
+    /* the genie: a ribbon of coloured vapour that pours up out of the open bottle until it fills everything */
+    smokeMat=new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,
+      uniforms:{org:{value:new THREE.Vector2(.5,.4)},p:{value:0},time:{value:0},asp:{value:1},col:{value:new THREE.Vector3(.5,.6,1)},col2:{value:new THREE.Vector3(.8,.85,1)}},
+      vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}`,
+      fragmentShader:`varying vec2 vUv;uniform vec2 org;uniform float p,time,asp;uniform vec3 col,col2;
+        float h(vec2 q){return fract(sin(dot(q,vec2(127.1,311.7)))*43758.5453);}
+        float n(vec2 q){vec2 i=floor(q),f=fract(q);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+        float fbm(vec2 q){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(q);q=q*2.02+vec2(3.1,1.7);a*=.5;}return v;}
+        void main(){
+          vec2 q=(vUv-org)*vec2(asp,1.);float y=q.y,t=time;
+          float H=.05+p*2.6;
+          float w=.035+max(y,0.)*(.32+p*.5)+p*p*1.4;
+          float sway=(fbm(vec2(y*1.6-t*.5,t*.15))-.5)*(.25+y*.5)+sin(y*3.-t*1.3)*.05*y;
+          float x=q.x-sway;
+          float u=x/(w+max(-y,0.)*p*2.);
+          float body=smoothstep(1.,.15,abs(u))*smoothstep(H,H-.35-p*.6,y)*smoothstep(-.03-p*p*1.6,.03,y);  /* late on it billows down past the bottle too */
+          /* soft silky veils folding round each other, with bright rims like light through chiffon */
+          float f1=fbm(vec2(u*1.1+t*.07,y*1.2-t*.5)),f2=fbm(vec2(u*1.8-t*.05,y*1.7-t*.75)+3.);
+          float r1=sin(u*3.+f1*5.+y*1.3-t*.8),r2=sin(u*4.6+f2*6.-y*1.+t*.55);
+          float veil=(smoothstep(.2,1.,r1)*.6+smoothstep(.45,1.,r2)*.45)*body;
+          float rim=(smoothstep(.9,1.,r1)*.7+smoothstep(.94,1.,r2)*.55)*body;
+          float glow=fbm(vec2(u*1.2,y*1.-t*.5))*body,core=exp(-abs(u)*2.6)*body;
+          vec3 c=mix(col,col2,f2)*(.2+glow*.8+veil*1.1+core*.5)+vec3(1.)*rim*.75;
+          float a=clamp(glow*.45+veil*.65+rim*.55+core*.3,0.,.96);
+          float strand=rim;
+          vec2 g=vUv*vec2(asp,1.)*28.+vec2(0.,-t*1.2);vec2 gi=floor(g),gf=fract(g)-.5;float r=h(gi);
+          float tw=step(.93,r)*pow(max(0.,1.-length(gf)*3.2),3.)*(.5+.5*sin(t*6.+r*40.))*smoothstep(0.,.4,body+p*p);
+          c+=vec3(1.)*tw*1.5;a=max(a,tw);
+          float cover=smoothstep(.62,1.,p);
+          vec3 wash=mix(col,col2,fbm(vUv*3.+t*.2))*1.15+vec3(.25);
+          c=mix(c,wash+c*.4,cover);a=mix(a,1.,cover);
+          gl_FragColor=vec4(c,a*smoothstep(0.,.04,p));}`});
+    smokeScene=new THREE.Scene();smokeCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);smokeScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),smokeMat));
     built=true}
   function wheel(e){if(scene!=='hall'||leaving||!zoomed)return;const d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;target+=d*.0032}
   let tx0=0;function tstart(e){tx0=e.touches[0].clientX}function tmove(e){if(!zoomed)return;const x=e.touches[0].clientX;target+=(tx0-x)/260;tx0=x}
@@ -1094,8 +1127,12 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
     if(e.key==='ArrowRight')target=Math.round(target)+1;if(e.key==='ArrowLeft')target=Math.round(target)-1;if((e.key==='Enter'||e.key===' ')&&zk>.97&&Math.abs(pos-Math.round(pos))<.18)drink()}
   function clk(){if(scene!=='hall'||leaving)return;if(!zoomed){zoomIn();return}if(zk>.97&&Math.abs(pos-Math.round(pos))<.18)drink()}
   const nearOf=p=>((Math.round(p)%4)+4)%4;
-  async function drink(){const i=nearOf(pos);leaving=true;hint.style.opacity=0;await type(say,'You drink it. It tastes of everything you ever wanted.',34);
-    bottles[i].tip=1;await sleep(2400);exit()}
+  async function drink(){const i=nearOf(pos);leaving=true;hint.style.opacity=0;dmEl.style.opacity=0;
+    const b=bottles[i],d=b.d;smokeB=b;opened=0;smokeP=0;
+    const lit=v=>new THREE.Vector3(...v.map(x=>Math.min(1,x*1.15+.08)));
+    smokeMat.uniforms.col.value.copy(lit(d.liq));smokeMat.uniforms.col2.value.copy(lit(d.liq2||d.liq).lerp(new THREE.Vector3(1,1,1),.35));
+    type(say,'You drink it. It tastes of everything you ever wanted.',34);
+    await sleep(900);smokeOn=true;await sleep(4200);exit()}
   const vis=(a,v)=>a.forEach(m=>m.visible=v);
   function frame(now){if(!run)return;raf=requestAnimationFrame(frame);const t=now/1000,dt=Math.min(.05,(now-(last||now))/1000);last=now;sizeR(r3,cam);
     const ds=r3.getDrawingBufferSize(new THREE.Vector2());if(rt1.width!==ds.x||rt1.height!==ds.y){rt1.setSize(ds.x,ds.y);rt2.setSize(ds.x,ds.y)}
@@ -1137,8 +1174,14 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
       setTimeout(()=>{cap.innerHTML=`<img alt="${d.t}" src="${IMG['c_'+d.t]}" style="height:calc(clamp(96px,15vh,170px) * ${d.ch/580});display:inline-block">`;cap.style.opacity=1},250)}
     vis(glassMs,false);vis(liqMs,false);bottles.forEach(b=>b.pts.visible=false);r3.setRenderTarget(rt1);r3.render(sc,cam);
     vis(liqMs,true);bottles.forEach(b=>b.pts.visible=true);r3.setRenderTarget(rt2);r3.render(sc,cam);
-    vis(glassMs,true);r3.setRenderTarget(null);r3.render(sc,cam);}
-  return{start(){if(!built)build();bottles.forEach(b=>{b.tip=0;b.g.rotation.z=0;b.g.userData.holder.position.y=0});pos=target=0;shown=-1;leaving=false;last=0;zoomed=false;steps=0;lastNear=0;scareK=0;dmShown=false;wallK=0;dmEl.style.opacity=0;zk=0;t0=performance.now();run=true;cap.innerHTML='';say.textContent='';hint.style.opacity='';hint.textContent=TOUCH?'tap to come closer':'click to come closer';
+    vis(glassMs,true);r3.setRenderTarget(null);r3.render(sc,cam);
+    if(smokeB){opened=Math.min(1,opened+dt/.9);const e=opened*opened*(3-2*opened);
+      smokeB.stop.position.set(0,e*.62,0);smokeB.stop.rotation.set(e*.35,0,-e*.25);smokeB.stop.visible=opened<1||smokeP<.25;
+      if(smokeOn){smokeP=Math.min(1.05,smokeP+dt/3.2);
+        const w=smokeB.spin.localToWorld(new THREE.Vector3(0,smokeB.neckY,0)).project(cam);
+        const U=smokeMat.uniforms;U.org.value.set(w.x*.5+.5,w.y*.5+.5);U.p.value=Math.min(1,smokeP);U.time.value=t;U.asp.value=cam.aspect;
+        r3.autoClear=false;r3.render(smokeScene,smokeCam);r3.autoClear=true}}}
+  return{start(){if(!built)build();bottles.forEach(b=>{b.tip=0;b.g.rotation.z=0;b.g.userData.holder.position.y=0;b.stop.position.set(0,0,0);b.stop.rotation.set(0,0,0);b.stop.visible=true});smokeB=null;smokeOn=false;smokeP=0;pos=target=0;shown=-1;leaving=false;last=0;zoomed=false;steps=0;lastNear=0;scareK=0;dmShown=false;wallK=0;dmEl.style.opacity=0;zk=0;t0=performance.now();run=true;cap.innerHTML='';say.textContent='';hint.style.opacity='';hint.textContent=TOUCH?'tap to come closer':'click to come closer';
       raf=requestAnimationFrame(frame);addEventListener('wheel',wheel,{passive:true});addEventListener('touchstart',tstart,{passive:true});addEventListener('touchmove',tmove,{passive:true});addEventListener('keydown',key);el.addEventListener('click',clk);
       setTimeout(()=>type(say,'A round room. Doors all round it — and every one locked.',36).then(()=>sleep(2600)).then(()=>{if(!leaving)say.textContent=''}),700)},
     stop(){run=false;cancelAnimationFrame(raf);removeEventListener('wheel',wheel);removeEventListener('touchstart',tstart);removeEventListener('touchmove',tmove);removeEventListener('keydown',key);el.removeEventListener('click',clk)}}})();
@@ -1218,7 +1261,7 @@ scenes.wake=(()=>{const el=$('#a-wake'),cv=$('canvas',el),x=cv.getContext('2d'),
 
 /* ---------- enter / leave the chapter ---------- */
 let onExit=null;
-async function exit(){const cur=scene||'wake',f=$('#a-'+cur);f.style.transition='opacity 1.2s';f.style.opacity=0;await sleep(1200);scenes[cur].stop();f.style.display='none';scene=null;
+async function exit(){const sid=scene||'wake',f=$('#a-'+sid);f.style.transition='opacity 1.2s';f.style.opacity=0;await sleep(1200);scenes[sid].stop();f.style.display='none';scene=null;
   root.style.display='none';cur.style.display='none';root.style.filter='';onExit&&onExit()}
 return{start(cb){onExit=cb;root.style.display='block';root.style.filter='';cur.style.display='none';cur.style.transform=`translate(${cx0}px,${cy0}px)`;
   ['fall','hall','garden','trial','wake'].forEach(i=>{$('#a-'+i).style.display='none'});scene=null;go('fall')},
