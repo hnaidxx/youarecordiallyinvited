@@ -1040,7 +1040,7 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
     cLight=new THREE.PointLight(0xffc98a,0,16,1.4);cLight.position.set(0,2.5+ch*.5,TZ);sc.add(cLight);
     spot=new THREE.SpotLight(0xfff0dc,0,9,.42,1,1.1);spot.position.set(0,3.1,TZ+1.1);spot.target.position.set(0,TOPY+.15,TZ+.3);spot.castShadow=true;spot.shadow.mapSize.set(1024,1024);spot.shadow.bias=-.0006;sc.add(spot,spot.target);
     amb=new THREE.AmbientLight(0xffe6d0,0);sc.add(amb);
-    dmEl.src=IMG.r_drink;dmEl.style.cssText='position:absolute;z-index:6;left:50%;top:60%;width:94vw;height:56vh;object-fit:contain;transform:translate(-50%,-50%);pointer-events:none;opacity:0';el.appendChild(dmEl);
+    dmEl.src=IMG.r_drink;dmEl.style.cssText='position:absolute;z-index:6;left:50%;top:60%;width:96vw;height:56vh;object-fit:fill;transform:translate(-50%,0);transform-origin:50% 50%;pointer-events:none;opacity:0';el.appendChild(dmEl);
     const dt2=tx('r_drink');dm=new THREE.Mesh(new THREE.PlaneGeometry(1,dt2.image.height/dt2.image.width),new THREE.MeshBasicMaterial({map:dt2,transparent:true,depthWrite:false,toneMapped:false}));dm.renderOrder=5;dm.rotation.x=-Math.PI/2;dm.position.set(0,TOPY+.002,TZ+.05);dm.scale.setScalar(.32);sc.add(dm);
     dmWall=new THREE.Mesh(new THREE.PlaneGeometry(.82,.82*dt2.image.height/dt2.image.width),new THREE.MeshBasicMaterial({map:dt2,transparent:true,opacity:0,depthWrite:false,toneMapped:false,fog:false}));
     dmWall.position.set(0,TOPY+.1,-RR+.06);dmWall.visible=false;sc.add(dmWall);
@@ -1110,11 +1110,12 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
     /* look around the round room, or lean in over the table */
     zk+=((zoomed?1:0)-zk)*(1-Math.exp(-dt*2.2));const z=zk*zk*(3-2*zk);
     yaw+=(((cx0/innerWidth-.5)*-1.9)*(1-z)-yaw)*(1-Math.exp(-dt*3));pitch+=((((.5-cy0/innerHeight)*.38+.06)*(1-z))-pitch)*(1-Math.exp(-dt*3));
-    cam.fov=56+(10-56)*z;cam.updateProjectionMatrix();const tanZ=Math.tan(5*Math.PI/180),dz=RING+(.5*Math.min(1.7,Math.max(1,1.78/cam.aspect)))/(2*tanZ);  /* phones: lean in closer, neighbours slide off the sides */
-    const P0=new THREE.Vector3(0,1.5,2.2),Pz=new THREE.Vector3((cx0/innerWidth-.5)*.25,TOPY+.53+(cy0/innerHeight-.5)*-.04,TZ+dz);
+    cam.fov=56+(10-56)*z;cam.updateProjectionMatrix();const tanZ=Math.tan(5*Math.PI/180),dz=RING+(.5*Math.min(1.4,Math.max(1,1.78/cam.aspect)))/(2*tanZ);  /* phones: lean in closer, neighbours slide off the sides */
+    const PT=Math.min(1,Math.max(0,(1.78/cam.aspect-1)/2.6));   /* tall screens look down more steeply so the table's edge stays out of frame */
+    const P0=new THREE.Vector3(0,1.5,2.2),Pz=new THREE.Vector3((cx0/innerWidth-.5)*.25,TOPY+.53+1.25*PT+(cy0/innerHeight-.5)*-.04,TZ+dz-.25*PT);
     cam.position.lerpVectors(P0,Pz,z);
     const L0=new THREE.Vector3(Math.sin(yaw)*-1,0,-Math.cos(yaw)).multiplyScalar(10).add(new THREE.Vector3(0,1.55+Math.tan(pitch)*10,3));
-    const Lz=new THREE.Vector3(0,TOPY+.265,TZ+RING);cam.lookAt(L0.lerp(Lz,z));
+    const Lz=new THREE.Vector3(0,TOPY+.265-.065*PT,TZ+RING);cam.lookAt(L0.lerp(Lz,z));
     chand.rotation.y=Math.atan2(cam.position.x-chand.position.x,cam.position.z-chand.position.z);chand.rotation.z=Math.sin(t*.6)*.012;
     tbase.rotation.y=Math.atan2(cam.position.x,cam.position.z-TZ);
     ring.rotation.y=-pos*Math.PI/2;
@@ -1123,8 +1124,8 @@ scenes.hall=(()=>{const el=$('#a-hall'),cv=$('canvas',el),say=$('.say',el),hint=
     dm.visible=zk>.05;
     const burst=zoomed&&steps===3;
     if(burst!==dmShown){dmShown=burst;
-      if(burst){dmEl.style.top=innerHeight>innerWidth?'74%':'60%';dmEl.style.transition='none';dmEl.style.opacity=1;dmEl.style.transform='translate(-50%,-50%) scale(1.22)';
-        requestAnimationFrame(()=>requestAnimationFrame(()=>{dmEl.style.transition='transform .42s cubic-bezier(.2,1.7,.35,1)';dmEl.style.transform='translate(-50%,-50%) scale(1)'}))}
+      if(burst){const cb=cap.getBoundingClientRect(),top=Math.max(cb.bottom,innerHeight*.08)+innerHeight*.02;dmEl.style.top=top+'px';dmEl.style.height=Math.max(80,innerHeight-top-innerHeight*.02)+'px';dmEl.style.transition='none';dmEl.style.opacity=1;dmEl.style.transform='translate(-50%,0) scale(1.22)';
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{dmEl.style.transition='transform .42s cubic-bezier(.2,1.7,.35,1)';dmEl.style.transform='translate(-50%,0) scale(1)'}))}
       else{dmEl.style.transition='opacity .18s';dmEl.style.opacity=0}}
     dmWall.visible=false;
     bottles.forEach((b,i)=>{b.spin.rotation.y+=dt*(.25+Math.min(4,Math.abs(pv))*1.2);
